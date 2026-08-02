@@ -378,6 +378,25 @@ class Krea2RegionalMultiLoRAV3:
             ],
             "model_type": "krea2",
             "engine": "activation_delta+latent_mold",
+            # --- Detailer bridge --------------------------------------------
+            # Krea2RegionalDetailer only reads data["detail_plan"]: a list of
+            # {label, box:[x,y,w,h], lora, strength}. It never touches V12's
+            # attention/edit-LoRA machinery, so V3 can feed it directly using
+            # the box + LoRA + effective strength it already resolved above.
+            # Ref-only rows (no LoRA) are skipped -- the Detailer patches a
+            # LoRA into the base model per crop, so there's nothing for it
+            # to refine with on those.
+            "detail_plan": [
+                {
+                    "label": r.get("label") or f"person {i + 1}",
+                    "box": [x0, y0, x1 - x0, y1 - y0],
+                    "lora": r["lora"],
+                    "strength": s,
+                }
+                for i, (r, s, (x0, y0, x1, y1))
+                in enumerate(zip(active, strength_eff, norm_boxes))
+                if r["lora"] not in ("None", "") and s != 0.0
+            ],
         }
 
         logging.info(
